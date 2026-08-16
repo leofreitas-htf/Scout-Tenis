@@ -143,6 +143,19 @@ input[type=checkbox]{width:22px;height:22px}
       <label class="row" style="border:0">Quem sacou primeiro <span class="seg" style="width:170px"><button id="fsF">Filha</button><button id="fsA">Adv.</button></span></label>
       <button class="btn ghost" id="swap" style="margin-top:4px">⇄ Corrigir sacador agora</button>
     </div>
+    <div class="card">
+      <h3>Fim de jogo</h3>
+      <div style="font-size:13px;color:var(--mut);margin-bottom:8px">Use se a partida acabar antes do fim natural (WO, desistência, tempo). Dá pra desfazer.</div>
+      <button class="btn" id="endMatch">Encerrar partida agora</button>
+    </div>
+    <div class="card">
+      <h3>Análise da partida</h3>
+      <div class="grid2">
+        <button class="btn" id="copyRep">Copiar relatório</button>
+        <button class="btn" id="aiBtn">Analisar com IA</button>
+      </div>
+      <div id="aiOut" style="font-size:14px;white-space:pre-wrap;margin-top:10px;line-height:1.45"></div>
+    </div>
     <div class="card" id="bkCard">
       <h3>Backup — código da partida</h3>
       <div id="stStatus" style="font-size:13px;margin-bottom:8px"></div>
@@ -190,7 +203,7 @@ let STORE_OK=false;    // salvamento automático disponível?
 /* ---------------- motor de placar ---------------- */
 function simulate(log,cfg){
   const s={sets:[],setsF:0,setsA:0,gF:0,gA:0,pF:0,pA:0,server:cfg.firstServer,
-           tb:false,setIdx:0,over:false,champ:null};
+           tb:false,setIdx:0,over:false,champ:null,ended:false};
   const ann=[];
   if(cfg.superTB3&&s.setIdx===2) s.tb=true;
 
@@ -204,6 +217,13 @@ function simulate(log,cfg){
 
   for(const e of log){
     if(e.t==='swap'){ s.server=other(s.server); continue; }
+    if(e.t==='end'){
+      if(!s.over){
+        if(s.gF||s.gA||s.pF||s.pA) s.sets.push({f:s.gF,a:s.gA,partial:true});
+        s.over=true; s.ended=true;
+      }
+      continue;
+    }
     if(s.over){ ann.push({e,skip:true}); continue; }
 
     const rec=other(s.server);
@@ -267,7 +287,10 @@ function render(){
   $('pA').textContent=s.over?'':ptLabel(s.pA,s.pF,s.tb,CFG.noAd);
 
   let tag='';
-  if(s.over){ tag=`<b>Fim — ${s.champ==='F'?CFG.nF:CFG.nA} venceu</b>`; }
+  if(s.over){
+    tag = s.ended ? '<b>Partida encerrada</b>'
+                  : `<b>Fim — ${s.champ==='F'?CFG.nF:CFG.nA} venceu</b>`;
+  }
   else{
     const bits=[`Set ${s.setIdx+1}`];
     if(s.tb) bits.push((CFG.superTB3&&s.setIdx===2)?'<b>SUPER TIE-BREAK</b>':'<b>TIE-BREAK</b>');
@@ -479,6 +502,67 @@ function exportText(ann,s){
 ].join('\n');
 }
 
+function reportText(ann,s){
+  const t=calc(ann);
+  const sets=s.sets.map(x=>x.f+'-'+x.a).concat(s.over?[]:[s.gF+'-'+s.gA]).join(' ');
+  const L=[];
+  L.push(`RELATORIO DE PARTIDA — ${CFG.nF} vs ${CFG.nA}`);
+  L.push(`Formato: ${CFG.noAd?'sem vantagem':'vantagem normal'}, ${CFG.superTB3?'3o set em super tie-break':'3 sets completos'}. Primeiro saque: ${CFG.firstServer==='F'?CFG.nF:CFG.nA}.`);
+  L.push(`Placar: ${sets} (sets ${s.setsF}-${s.setsA})${s.over?(s.ended?' — encerrada antes do fim':' — partida completa'):' — em andamento'}`);
+  L.push('');
+  L.push(exportText(ann,s).split('\n').slice(3).join('\n'));
+  L.push('');
+  L.push('SEQUENCIA PONTO A PONTO');
+  L.push('(set / games / placar do game / sacador -> vencedor do ponto: desfecho)');
+  let i=0;
+  for(const a of ann){
+    if(a.skip||!a.ctx) continue;
+    i++;
+    const e=a.e,c=a.ctx;
+    const sc=c.tb?`TB ${c.pF}-${c.pA}`:`${ptLabel(c.pF,c.pA,false,CFG.noAd)}-${ptLabel(c.pA,c.pF,false,CFG.noAd)}`;
+    L.push(`${i}. S${c.setIdx+1} ${c.gF}-${c.gA} ${sc} [saque ${c.server==='F'?CFG.nF:CFG.nA}${e.serve===2?', 2o':''}]`
+      +` -> ${e.w==='F'?CFG.nF:CFG.nA}: ${HOW[e.how]}${e.shot?' de '+SH[e.shot]:''}${c.bp?' (BREAK POINT)':''}`);
+  }
+  return L.join('\n');
+}
+
+const AI_PROMPT=`Você é um treinador de tênis analisando o scout de uma partida de base. Abaixo está o relatório completo, com estatísticas e a sequência ponto a ponto.
+
+Escreva uma análise curta e prática em português, nesta estrutura:
+1. O QUE DECIDIU A PARTIDA — 2 ou 3 frases.
+2. PADRÕES DA NOSSA JOGADORA — o que funcionou e o que vazou, usando os números.
+3. PADRÕES DA ADVERSÁRIA — o que explorar num próximo confronto.
+4. MOMENTOS DE VIRADA — games ou sequências de pontos onde o jogo mudou, citando o placar.
+5. TREINAR NA SEMANA — no máximo 3 itens concretos.
+6. UMA FRASE PARA DIZER À JOGADORA — direta, encorajadora, sem jargão.
+
+Regras: baseie-se apenas nos dados abaixo. Se a amostra for pequena demais para uma conclusão, diga isso em vez de inventar tendência. Não invente pontos que não estão no log.
+
+RELATÓRIO:
+`;
+
+async function aiAnalyze(){
+  const btn=$('aiBtn'), box=$('aiOut');
+  const {s,ann}=simulate(LOG,CFG);
+  if(!ann.filter(a=>a.ctx).length){ box.textContent='Sem pontos registrados ainda.'; return; }
+  btn.disabled=true; btn.textContent='Analisando…'; box.textContent='';
+  try{
+    const r=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,
+        messages:[{role:"user",content:AI_PROMPT+reportText(ann,s)}]})
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    const txt=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text).join('\n');
+    box.textContent=txt||'A IA não retornou texto.';
+  }catch(err){
+    box.innerHTML='<b style="color:var(--a)">Não deu pra chamar a IA daqui.</b><br>'
+      +'Isso só funciona com o app aberto dentro do Claude. Rodando pelo GitHub Pages, use "Copiar relatório" e cole numa conversa com o Claude.';
+  }
+  btn.disabled=false; btn.textContent='Analisar com IA';
+}
+
 /* ---------------- persistência ---------------- */
 async function save(){
   const data=JSON.stringify({CFG,LOG});
@@ -537,7 +621,7 @@ function decode(txt){
 /* ---------------- eventos ---------------- */
 $('undo').onclick=()=>{
   if(pend){pend=null;render();return;}
-  for(let i=LOG.length-1;i>=0;i--){ if(LOG[i].t==='pt'){LOG.splice(i,1);break;} }
+  for(let i=LOG.length-1;i>=0;i--){ if(LOG[i].t==='pt'||LOG[i].t==='end'){LOG.splice(i,1);break;} }
   save();render();
 };
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
@@ -568,6 +652,20 @@ function syncCfg(){
   $('fsF').className=CFG.firstServer==='F'?'on':'';
   $('fsA').className=CFG.firstServer==='A'?'on':'';
 }
+$('endMatch').onclick=()=>{
+  const {s}=simulate(LOG,CFG);
+  if(s.over){ alert('A partida já está encerrada.'); return; }
+  if(!confirm('Encerrar a partida agora? Dá pra desfazer no botão Desfazer.')) return;
+  LOG.push({t:'end'}); pend=null; save(); render();
+};
+$('copyRep').onclick=async()=>{
+  const {s,ann}=simulate(LOG,CFG);
+  const txt=reportText(ann,s);
+  try{ await navigator.clipboard.writeText(txt); $('copyRep').textContent='Copiado ✓';
+    setTimeout(()=>$('copyRep').textContent='Copiar relatório',1500); }
+  catch(e){ $('aiOut').textContent=txt; $('copyRep').textContent='Copie do texto abaixo'; }
+};
+$('aiBtn').onclick=aiAnalyze;
 $('copyBk').onclick=async()=>{
   try{await navigator.clipboard.writeText($('bk').value);$('copyBk').textContent='Copiado ✓';
     setTimeout(()=>$('copyBk').textContent='Copiar código',1500);}
