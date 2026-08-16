@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1E6F5C">
+<title>Scout de Tênis</title>
+<style>
+:root{
+  --bg:#FBFAF7; --ink:#161A17; --mut:#6F736C; --line:#E2DED2;
+  --f:#1E6F5C; --f-soft:#E4F0EB;
+  --a:#B23A20; --a-soft:#F8E7E1;
+  --card:#FFFFFF;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:16px;line-height:1.35;
+  padding-bottom:76px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:520px;margin:0 auto;padding:0 12px}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+/* ---------- placar ---------- */
+.board{background:var(--ink);color:#fff;border-radius:14px;padding:10px 12px;margin-top:10px}
+.brow{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;padding:5px 0}
+.brow+.brow{border-top:1px solid rgba(255,255,255,.14)}
+.pname{display:flex;align-items:center;gap:8px;font-weight:700;font-size:17px;letter-spacing:-.2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{width:9px;height:9px;border-radius:50%;background:transparent;flex:none}
+.dot.on{background:#F2C230}
+.sets{display:flex;gap:6px}
+.sq{min-width:26px;height:28px;border-radius:6px;background:rgba(255,255,255,.12);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px}
+.sq.cur{background:rgba(255,255,255,.28)}
+.pts{min-width:56px;height:34px;border-radius:8px;background:#fff;color:var(--ink);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px}
+.tag{text-align:center;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.6);padding-top:6px}
+.tag b{color:#F2C230}
+
+/* ---------- botões ---------- */
+.btn{display:flex;align-items:center;justify-content:center;text-align:center;
+  border:1.5px solid var(--line);background:var(--card);color:var(--ink);
+  border-radius:12px;font-size:16px;font-weight:650;padding:14px 10px;min-height:56px;
+  cursor:pointer;font-family:inherit;width:100%}
+.btn:active{transform:scale(.985)}
+.btn.big{min-height:88px;font-size:19px;font-weight:800;flex-direction:column;gap:2px}
+.btn.big small{font-weight:600;font-size:12px;color:var(--mut);letter-spacing:.05em;text-transform:uppercase}
+.btn.f{border-color:var(--f);background:var(--f-soft);color:#123f34}
+.btn.a{border-color:var(--a);background:var(--a-soft);color:#6d2314}
+.btn.ghost{background:transparent;font-weight:600;font-size:14px;min-height:46px;color:var(--mut)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.stack{display:grid;gap:10px}
+
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1.5px solid var(--line);
+  border-radius:12px;overflow:hidden;background:var(--card)}
+.seg button{border:0;background:transparent;padding:12px 6px;font:inherit;font-weight:700;font-size:15px;color:var(--mut);cursor:pointer}
+.seg button.on{background:var(--ink);color:#fff}
+
+.q{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);
+  margin:16px 0 8px;font-weight:700}
+.q em{font-style:normal;color:var(--ink)}
+.hint{font-size:12.5px;color:var(--mut);text-align:center;margin-top:10px}
+
+/* ---------- stats ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:10px}
+.card h3{margin:0 0 10px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+.st{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:8px;padding:7px 0;font-size:15px}
+.st+.st{border-top:1px solid #F0EDE5}
+.st .lab{text-align:center;font-size:12px;color:var(--mut)}
+.st b{font-weight:800}
+.st .l{text-align:left;color:var(--f)}
+.st .r{text-align:right;color:var(--a)}
+.bar{height:6px;border-radius:3px;background:#EFECE3;overflow:hidden;display:flex;margin-top:4px}
+.bar i{display:block;height:100%}
+.bar .bf{background:var(--f)} .bar .ba{background:var(--a)}
+.log{font-size:13.5px;padding:8px 0;border-bottom:1px solid #F0EDE5;display:flex;gap:8px;align-items:baseline}
+.log .ix{color:var(--mut);font-size:11px;min-width:26px}
+.pill{display:inline-block;font-size:11px;padding:1px 6px;border-radius:20px;background:#F0EDE5;color:var(--mut);margin-left:4px}
+
+/* ---------- tabs ---------- */
+.tabs{position:fixed;bottom:0;left:0;right:0;background:rgba(251,250,247,.96);
+  backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;
+  padding:8px 10px calc(8px + env(safe-area-inset-bottom));gap:6px;z-index:20}
+.tabs button{flex:1;border:0;background:transparent;font:inherit;font-weight:700;font-size:13px;
+  color:var(--mut);padding:10px 4px;border-radius:10px;cursor:pointer}
+.tabs button.on{background:var(--ink);color:#fff}
+.pane{display:none} .pane.on{display:block}
+textarea{width:100%;min-height:180px;border:1px solid var(--line);border-radius:12px;padding:10px;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:var(--card);color:var(--ink)}
+label.row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;font-size:15px;border-bottom:1px solid #F0EDE5}
+input[type=text]{border:1.5px solid var(--line);border-radius:10px;padding:9px 10px;font:inherit;font-size:15px;width:150px;text-align:right}
+input[type=checkbox]{width:22px;height:22px}
+.over{background:var(--ink);color:#fff;border-radius:12px;padding:12px;text-align:center;font-weight:700;margin-top:10px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- PLACAR -->
+  <div class="board">
+    <div class="brow">
+      <div class="pname"><span class="dot" id="dF"></span><span id="nF">Filha</span></div>
+      <div class="sets num" id="sF"></div>
+      <div class="pts num" id="pF">0</div>
+    </div>
+    <div class="brow">
+      <div class="pname"><span class="dot" id="dA"></span><span id="nA">Adversária</span></div>
+      <div class="sets num" id="sA"></div>
+      <div class="pts num" id="pA">0</div>
+    </div>
+    <div class="tag" id="tag"></div>
+  </div>
+
+  <!-- MARCAR -->
+  <div class="pane on" id="pane-mark">
+    <div id="markArea"></div>
+    <button class="btn ghost" id="undo" style="margin-top:14px">↶ Desfazer último ponto</button>
+    <div class="hint" id="hint"></div>
+  </div>
+
+  <!-- STATS -->
+  <div class="pane" id="pane-stats"><div id="statsArea"></div></div>
+
+  <!-- LOG -->
+  <div class="pane" id="pane-log">
+    <div class="card"><h3>Pontos registrados</h3><div id="logArea"></div></div>
+  </div>
+
+  <!-- AJUSTES -->
+  <div class="pane" id="pane-cfg">
+    <div class="card">
+      <h3>Partida</h3>
+      <label class="row">Nome (sua filha) <input type="text" id="cfgNF"></label>
+      <label class="row">Nome (adversária) <input type="text" id="cfgNA"></label>
+      <label class="row">3º set = super tie-break (10 pts) <input type="checkbox" id="cfgSTB"></label>
+      <label class="row">Sem vantagem (ponto de ouro) <input type="checkbox" id="cfgNOAD"></label>
+      <label class="row" style="border:0">Quem sacou primeiro <span class="seg" style="width:170px"><button id="fsF">Filha</button><button id="fsA">Adv.</button></span></label>
+      <button class="btn ghost" id="swap" style="margin-top:4px">⇄ Corrigir sacador agora</button>
+    </div>
+    <div class="card" id="bkCard">
+      <h3>Backup — código da partida</h3>
+      <div id="stStatus" style="font-size:13px;margin-bottom:8px"></div>
+      <textarea id="bk" readonly style="min-height:90px"></textarea>
+      <div class="grid2" style="margin-top:8px">
+        <button class="btn" id="copyBk">Copiar código</button>
+        <button class="btn" id="showRst">Restaurar…</button>
+      </div>
+      <div id="rstBox" style="display:none;margin-top:10px">
+        <textarea id="rstIn" placeholder="Cole aqui o código salvo" style="min-height:70px"></textarea>
+        <button class="btn" id="doRst" style="margin-top:8px">Restaurar partida</button>
+        <div id="rstMsg" style="font-size:13px;margin-top:6px"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Exportar</h3>
+      <textarea id="exp" readonly></textarea>
+      <div class="grid2" style="margin-top:10px">
+        <button class="btn" id="copy">Copiar resumo</button>
+        <button class="btn" id="reset" style="color:var(--a);border-color:var(--a)">Nova partida</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="on" data-p="mark">Marcar</button>
+  <button data-p="stats">Stats</button>
+  <button data-p="log">Log</button>
+  <button data-p="cfg">Ajustes</button>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const other=x=>x==='F'?'A':'F';
+const KEY='scout-tenis-v1';
+
+let CFG={nF:'Filha',nA:'Adversária',superTB3:true,noAd:false,firstServer:'F'};
+let LOG=[];            // {t:'pt',w,how,shot,serve} | {t:'swap'}
+let pend=null;         // ponto em construção
+let serveNo=1;         // 1º ou 2º saque do ponto atual
+let STORE_OK=false;    // salvamento automático disponível?
+
+/* ---------------- motor de placar ---------------- */
+function simulate(log,cfg){
+  const s={sets:[],setsF:0,setsA:0,gF:0,gA:0,pF:0,pA:0,server:cfg.firstServer,
+           tb:false,setIdx:0,over:false,champ:null};
+  const ann=[];
+  if(cfg.superTB3&&s.setIdx===2) s.tb=true;
+
+  function closeSet(){
+    s.sets.push({f:s.gF,a:s.gA});
+    if(s.gF>s.gA) s.setsF++; else s.setsA++;
+    if(s.setsF===2||s.setsA===2){s.over=true;s.champ=s.setsF===2?'F':'A';return;}
+    s.setIdx++;s.gF=0;s.gA=0;s.pF=0;s.pA=0;
+    s.tb=!!(cfg.superTB3&&s.setIdx===2);
+  }
+
+  for(const e of log){
+    if(e.t==='swap'){ s.server=other(s.server); continue; }
+    if(s.over){ ann.push({e,skip:true}); continue; }
+
+    const rec=other(s.server);
+    const rP=rec==='F'?s.pF:s.pA, sP=s.server==='F'?s.pF:s.pA;
+    const ctx={server:s.server,setIdx:s.setIdx,tb:s.tb,gF:s.gF,gA:s.gA,pF:s.pF,pA:s.pA,
+      bp:!s.tb&&(cfg.noAd ? (rP>=3&&rP>=sP) : (rP>=3&&rP-sP>=1)), rec:rec};
+    ann.push({e,ctx});
+
+    if(e.w==='F') s.pF++; else s.pA++;
+
+    if(s.tb){
+      const target=(cfg.superTB3&&s.setIdx===2)?10:7;
+      const tot=s.pF+s.pA;
+      if(tot===1||(tot>1&&(tot-1)%2===0)) s.server=other(s.server);
+      if((s.pF>=target||s.pA>=target)&&Math.abs(s.pF-s.pA)>=2){
+        if(s.pF>s.pA) s.gF++; else s.gA++;
+        closeSet();
+      }
+    }else{
+      let g=null;
+      if(cfg.noAd){ if(s.pF>=4&&s.pF>s.pA)g='F'; else if(s.pA>=4&&s.pA>s.pF)g='A'; }
+      else{ if(s.pF>=4&&s.pF-s.pA>=2)g='F'; else if(s.pA>=4&&s.pA-s.pF>=2)g='A'; }
+      if(g){
+        if(g==='F')s.gF++;else s.gA++;
+        s.pF=0;s.pA=0;s.server=other(s.server);
+        if((s.gF>=6&&s.gF-s.gA>=2)||(s.gA>=6&&s.gA-s.gF>=2)) closeSet();
+        else if(s.gF===6&&s.gA===6) s.tb=true;
+      }
+    }
+  }
+  return {s,ann};
+}
+
+const PT=['0','15','30','40'];
+function ptLabel(mine,theirs,tb,noAd){
+  if(tb) return String(mine);
+  if(mine<=3&&theirs<=3&&!(mine===3&&theirs===3)) return PT[mine];
+  if(mine===3&&theirs===3) return noAd?'PO':'40';
+  if(mine>theirs) return 'AD';
+  if(mine<theirs) return '—';
+  return '40';
+}
+
+/* ---------------- render ---------------- */
+function render(){
+  const {s,ann}=simulate(LOG,CFG);
+  $('nF').textContent=CFG.nF; $('nA').textContent=CFG.nA;
+  $('dF').className='dot'+(s.server==='F'&&!s.over?' on':'');
+  $('dA').className='dot'+(s.server==='A'&&!s.over?' on':'');
+
+  const nSets=Math.max(s.sets.length+(s.over?0:1),1);
+  let hF='',hA='';
+  for(let i=0;i<nSets;i++){
+    const done=s.sets[i];
+    const f=done?done.f:s.gF, a=done?done.a:s.gA;
+    const cur=!done&&!s.over?' cur':'';
+    hF+=`<div class="sq${cur}">${f}</div>`; hA+=`<div class="sq${cur}">${a}</div>`;
+  }
+  $('sF').innerHTML=hF; $('sA').innerHTML=hA;
+  $('pF').textContent=s.over?'':ptLabel(s.pF,s.pA,s.tb,CFG.noAd);
+  $('pA').textContent=s.over?'':ptLabel(s.pA,s.pF,s.tb,CFG.noAd);
+
+  let tag='';
+  if(s.over){ tag=`<b>Fim — ${s.champ==='F'?CFG.nF:CFG.nA} venceu</b>`; }
+  else{
+    const bits=[`Set ${s.setIdx+1}`];
+    if(s.tb) bits.push((CFG.superTB3&&s.setIdx===2)?'<b>SUPER TIE-BREAK</b>':'<b>TIE-BREAK</b>');
+    const rec=other(s.server);
+    const rP=rec==='F'?s.pF:s.pA, sP=s.server==='F'?s.pF:s.pA;
+    const bp=!s.tb&&(CFG.noAd?(rP>=3&&rP>=sP):(rP>=3&&rP-sP>=1));
+    if(bp) bits.push('<b>BREAK POINT</b>');
+    bits.push('saque: '+(s.server==='F'?CFG.nF:CFG.nA));
+    tag=bits.join(' · ');
+  }
+  $('tag').innerHTML=tag;
+
+  renderMark(s);
+  renderStats(ann,s);
+  renderLog(ann);
+  $('exp').value=exportText(ann,s);
+  $('bk').value=encode();
+  $('stStatus').innerHTML=STORE_OK
+    ? '<b style="color:var(--f)">Salvamento automático ativo.</b> Ainda assim, copie o código a cada troca de lado.'
+    : '<b style="color:var(--a)">Salvamento automático indisponível neste aparelho.</b> Copie o código abaixo a cada troca de lado — é a única forma de recuperar a partida.';
+  $('hint').textContent=LOG.filter(x=>x.t==='pt').length+' pontos'+(STORE_OK?' · salva sozinho':' · SEM autosave: copie o código em Ajustes');
+}
+
+function renderMark(s){
+  const A=$('markArea');
+  if(s.over){ A.innerHTML='<div class="over">Partida encerrada. Veja a aba Stats.</div>'; return; }
+  const srv=s.server==='F'?CFG.nF:CFG.nA;
+
+  if(!pend){
+    A.innerHTML=`
+      <div class="q">Saque de <em>${srv}</em></div>
+      <div class="seg">
+        <button class="${serveNo===1?'on':''}" data-sv="1">1º saque</button>
+        <button class="${serveNo===2?'on':''}" data-sv="2">2º saque</button>
+      </div>
+      <div class="q">Quem ganhou o ponto?</div>
+      <div class="grid2">
+        <button class="btn big f" data-w="F">${CFG.nF}<small>ganhou</small></button>
+        <button class="btn big a" data-w="A">${CFG.nA}<small>ganhou</small></button>
+      </div>
+      <div class="grid2" style="margin-top:10px">
+        <button class="btn" data-quick="ace">Ace <small>&nbsp;(${srv})</small></button>
+        <button class="btn" data-quick="df">Dupla falta</button>
+      </div>`;
+    A.querySelectorAll('[data-sv]').forEach(b=>b.onclick=()=>{serveNo=+b.dataset.sv;render();});
+    A.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{pend={w:b.dataset.w};render();});
+    A.querySelector('[data-quick="ace"]').onclick=()=>add({w:s.server,how:'ace',shot:'SAQ',serve:serveNo});
+    A.querySelector('[data-quick="df"]').onclick=()=>add({w:other(s.server),how:'df',shot:'SAQ',serve:2});
+    return;
+  }
+
+  const wn=pend.w==='F'?CFG.nF:CFG.nA, ln=pend.w==='F'?CFG.nA:CFG.nF;
+  if(!pend.how){
+    A.innerHTML=`
+      <div class="q">Ponto de <em>${wn}</em> — como terminou?</div>
+      <div class="stack">
+        <button class="btn" data-h="winner">Winner de ${wn}</button>
+        <button class="btn" data-h="fe">Erro forçado de ${ln}</button>
+        <button class="btn" data-h="ue">Erro NÃO forçado de ${ln}</button>
+      </div>
+      <button class="btn ghost" data-h="cancel" style="margin-top:10px">← voltar</button>`;
+    A.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{
+      if(b.dataset.h==='cancel'){pend=null;} else {pend.how=b.dataset.h;}
+      render();
+    });
+    return;
+  }
+
+  const who=pend.how==='winner'?wn:ln;
+  A.innerHTML=`
+    <div class="q">Qual golpe? <em>(${who})</em></div>
+    <div class="grid3">
+      <button class="btn" data-s="FH">Direita</button>
+      <button class="btn" data-s="BH">Esquerda</button>
+      <button class="btn" data-s="SAQ">Saque</button>
+      <button class="btn" data-s="VOL">Voleio</button>
+      <button class="btn" data-s="SMA">Smash</button>
+      <button class="btn" data-s="">Sem detalhe</button>
+    </div>
+    <button class="btn ghost" data-s="cancel" style="margin-top:10px">← voltar</button>`;
+  A.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{
+    if(b.dataset.s==='cancel'){pend.how=null;render();return;}
+    add({w:pend.w,how:pend.how,shot:b.dataset.s||null,serve:serveNo});
+  });
+}
+
+function add(p){ LOG.push({t:'pt',...p}); pend=null; serveNo=1; save(); render(); }
+
+/* ---------------- estatísticas ---------------- */
+function calc(ann){
+  const z=()=>({F:0,A:0});
+  const st={pts:z(),win:z(),ue:z(),fe:z(),ace:z(),df:z(),
+    svPts:z(),sv1in:z(),sv1won:z(),sv2won:z(),sv2pts:z(),svWon:z(),
+    bpT:z(),bpW:z(),
+    shotW:{F:{},A:{}},shotE:{F:{},A:{}}};
+  for(const a of ann){
+    if(a.skip||!a.ctx) continue;
+    const e=a.e, w=e.w, l=other(w), c=a.ctx;
+    st.pts[w]++;
+    if(e.how==='winner'){st.win[w]++; if(e.shot)st.shotW[w][e.shot]=(st.shotW[w][e.shot]||0)+1;}
+    if(e.how==='ue'){st.ue[l]++; if(e.shot)st.shotE[l][e.shot]=(st.shotE[l][e.shot]||0)+1;}
+    if(e.how==='fe'){st.fe[l]++;}
+    if(e.how==='ace'){st.ace[w]++;}
+    if(e.how==='df'){st.df[l]++;}
+    const sv=c.server;
+    st.svPts[sv]++;
+    if(e.serve===1){st.sv1in[sv]++; if(w===sv)st.sv1won[sv]++;}
+    else{st.sv2pts[sv]++; if(w===sv)st.sv2won[sv]++;}
+    if(w===sv) st.svWon[sv]++;
+    if(c.bp){ st.bpT[c.rec]++; if(w===c.rec) st.bpW[c.rec]++; }
+  }
+  return st;
+}
+const pc=(n,d)=>d?Math.round(100*n/d)+'%':'—';
+
+function row(l,lab,r){return `<div class="st"><b class="l num">${l}</b><div class="lab">${lab}</div><b class="r num">${r}</b></div>`;}
+
+function renderStats(ann,s){
+  const t=calc(ann), n=t.pts.F+t.pts.A;
+  const shots={FH:'Direita',BH:'Esquerda',SAQ:'Saque',VOL:'Voleio',SMA:'Smash'};
+  let sw='',se='';
+  for(const k in shots){
+    if(t.shotW.F[k]||t.shotW.A[k]) sw+=row(t.shotW.F[k]||0,shots[k],t.shotW.A[k]||0);
+    if(t.shotE.F[k]||t.shotE.A[k]) se+=row(t.shotE.F[k]||0,shots[k],t.shotE.A[k]||0);
+  }
+  $('statsArea').innerHTML=`
+  <div class="card">
+    <h3>${CFG.nF} &nbsp;vs&nbsp; ${CFG.nA}</h3>
+    ${row(t.pts.F,'pontos ganhos',t.pts.A)}
+    <div class="bar"><i class="bf" style="width:${n?100*t.pts.F/n:50}%"></i><i class="ba" style="width:${n?100*t.pts.A/n:50}%"></i></div>
+    ${row(t.win.F,'winners',t.win.A)}
+    ${row(t.ue.F,'erros não forçados',t.ue.A)}
+    ${row(t.fe.F,'erros forçados',t.fe.A)}
+    ${row((t.win.F-t.ue.F>0?'+':'')+(t.win.F-t.ue.F),'saldo W − ENF',(t.win.A-t.ue.A>0?'+':'')+(t.win.A-t.ue.A))}
+  </div>
+  <div class="card">
+    <h3>Saque</h3>
+    ${row(t.ace.F,'aces',t.ace.A)}
+    ${row(t.df.F,'duplas faltas',t.df.A)}
+    ${row(pc(t.sv1in.F,t.svPts.F),'1º saque dentro',pc(t.sv1in.A,t.svPts.A))}
+    ${row(pc(t.sv1won.F,t.sv1in.F),'pts ganhos c/ 1º',pc(t.sv1won.A,t.sv1in.A))}
+    ${row(pc(t.sv2won.F,t.sv2pts.F),'pts ganhos c/ 2º',pc(t.sv2won.A,t.sv2pts.A))}
+    ${row(pc(t.svWon.F,t.svPts.F),'pts ganhos sacando',pc(t.svWon.A,t.svPts.A))}
+    ${row(t.bpW.F+'/'+t.bpT.F,'break points',t.bpW.A+'/'+t.bpT.A)}
+  </div>
+  ${sw?`<div class="card"><h3>Winners por golpe</h3>${sw}</div>`:''}
+  ${se?`<div class="card"><h3>Erros não forçados por golpe</h3>${se}</div>`:''}
+  <div class="card"><h3>Leitura rápida</h3><div style="font-size:14.5px;color:#3c403b">${insight(t)}</div></div>`;
+}
+
+function insight(t){
+  const out=[];
+  const n=t.pts.F+t.pts.A;
+  if(n<12) return 'Poucos pontos ainda — as tendências aparecem depois de ~2 games.';
+  if(t.ue.F>t.win.F*1.6) out.push(`Erros não forçados de ${CFG.nF} estão bem acima dos winners (${t.ue.F} × ${t.win.F}): margem de bola baixa.`);
+  if(t.win.F>t.ue.F) out.push(`${CFG.nF} está com saldo positivo de winners × erros — jogo agressivo funcionando.`);
+  const eF=t.shotE.F, wA=t.shotW.A;
+  if((eF.BH||0)>(eF.FH||0)+2) out.push(`A esquerda de ${CFG.nF} está vazando (${eF.BH} erros): esperar ataque da adversária nesse lado.`);
+  if((eF.FH||0)>(eF.BH||0)+2) out.push(`A direita de ${CFG.nF} está errando mais que a esquerda (${eF.FH}).`);
+  if((wA.FH||0)>=3) out.push(`Adversária já fez ${wA.FH} winners de direita — evitar abrir esse lado.`);
+  if(t.svPts.F>=8&&t.sv1in.F/t.svPts.F<0.55) out.push(`1º saque de ${CFG.nF} em ${pc(t.sv1in.F,t.svPts.F)} — está pagando caro no 2º.`);
+  if(t.bpT.F>=3&&t.bpW.F/t.bpT.F<0.34) out.push(`Break points: ${t.bpW.F} de ${t.bpT.F} convertidos — conversão baixa.`);
+  return out.length?'• '+out.join('<br>• '):'Sem padrão dominante até aqui.';
+}
+
+/* ---------------- log ---------------- */
+const HOW={winner:'winner',ue:'erro não forçado',fe:'erro forçado',ace:'ace',df:'dupla falta'};
+const SH={FH:'direita',BH:'esquerda',SAQ:'saque',VOL:'voleio',SMA:'smash'};
+function renderLog(ann){
+  const rows=ann.filter(a=>!a.skip&&a.ctx);
+  if(!rows.length){$('logArea').innerHTML='<div style="color:var(--mut);font-size:14px">Nenhum ponto ainda.</div>';return;}
+  let h='';
+  rows.slice().reverse().forEach((a,i)=>{
+    const idx=rows.length-i;
+    const e=a.e, c=a.ctx;
+    const who=e.w==='F'?CFG.nF:CFG.nA;
+    const sc=c.tb?`TB ${c.pF}-${c.pA}`:`${ptLabel(c.pF,c.pA,false,CFG.noAd)}-${ptLabel(c.pA,c.pF,false,CFG.noAd)}`;
+    h+=`<div class="log"><span class="ix num">${idx}</span><span>
+      <b style="color:${e.w==='F'?'var(--f)':'var(--a)'}">${who}</b> — ${HOW[e.how]}${e.shot?' de '+SH[e.shot]:''}
+      <span class="pill">S${c.setIdx+1} ${c.gF}-${c.gA} · ${sc}</span>${c.bp?'<span class="pill" style="background:#FDECC8">BP</span>':''}
+    </span></div>`;
+  });
+  $('logArea').innerHTML=h;
+}
+
+function exportText(ann,s){
+  const t=calc(ann);
+  const sets=s.sets.map(x=>x.f+'-'+x.a).concat(s.over?[]:[s.gF+'-'+s.gA]).join(' ');
+  return [
+`SCOUT — ${CFG.nF} vs ${CFG.nA}`,
+`Placar: ${sets}   (sets ${s.setsF}-${s.setsA})`,
+``,
+`                       ${CFG.nF} | ${CFG.nA}`,
+`Pontos ganhos          ${t.pts.F} | ${t.pts.A}`,
+`Winners                ${t.win.F} | ${t.win.A}`,
+`Erros não forçados     ${t.ue.F} | ${t.ue.A}`,
+`Erros forçados         ${t.fe.F} | ${t.fe.A}`,
+`Aces                   ${t.ace.F} | ${t.ace.A}`,
+`Duplas faltas          ${t.df.F} | ${t.df.A}`,
+`1º saque dentro        ${pc(t.sv1in.F,t.svPts.F)} | ${pc(t.sv1in.A,t.svPts.A)}`,
+`Pts ganhos c/ 1º       ${pc(t.sv1won.F,t.sv1in.F)} | ${pc(t.sv1won.A,t.sv1in.A)}`,
+`Pts ganhos c/ 2º       ${pc(t.sv2won.F,t.sv2pts.F)} | ${pc(t.sv2won.A,t.sv2pts.A)}`,
+`Break points           ${t.bpW.F}/${t.bpT.F} | ${t.bpW.A}/${t.bpT.A}`,
+``,
+`Winners por golpe (${CFG.nF}): ${JSON.stringify(t.shotW.F)}`,
+`ENF por golpe (${CFG.nF}): ${JSON.stringify(t.shotE.F)}`,
+`Winners por golpe (${CFG.nA}): ${JSON.stringify(t.shotW.A)}`,
+`ENF por golpe (${CFG.nA}): ${JSON.stringify(t.shotE.A)}`
+].join('\n');
+}
+
+/* ---------------- persistência ---------------- */
+async function save(){
+  const data=JSON.stringify({CFG,LOG});
+  try{ await window.storage.set(KEY,data); }catch(e){}
+  try{ window.localStorage.setItem(KEY,data); }catch(e){}
+}
+async function load(){
+  let d=null;
+  try{
+    const r=await window.storage.get(KEY);
+    if(r&&r.value) d=JSON.parse(r.value);
+  }catch(e){}
+  if(!d){ try{ const v=window.localStorage.getItem(KEY); if(v) d=JSON.parse(v); }catch(e){} }
+  if(d){ if(d.CFG)CFG={...CFG,...d.CFG}; if(Array.isArray(d.LOG))LOG=d.LOG; }
+}
+async function probe(){
+  try{
+    await window.storage.set(KEY+'-probe','1');
+    const r=await window.storage.get(KEY+'-probe');
+    if(r&&r.value==='1'){ STORE_OK=true; return; }
+  }catch(e){}
+  try{
+    window.localStorage.setItem(KEY+'-probe','1');
+    STORE_OK = window.localStorage.getItem(KEY+'-probe')==='1';
+  }catch(e){ STORE_OK=false; }
+}
+
+/* --- código de backup: recupera TUDO, ponto a ponto --- */
+const HC={winner:'w',ue:'u',fe:'f',ace:'a',df:'d'};
+const HD={w:'winner',u:'ue',f:'fe',a:'ace',d:'df'};
+const SC={FH:'F',BH:'B',SAQ:'S',VOL:'V',SMA:'M'};
+const SD={F:'FH',B:'BH',S:'SAQ',V:'VOL',M:'SMA'};
+const clean=s=>String(s).replace(/\|/g,'');
+function encode(){
+  const pts=LOG.map(e=>e.t==='swap'?'X---':(e.w+HC[e.how]+(e.shot?SC[e.shot]:'-')+(e.serve||1))).join('');
+  return ['ST1',clean(CFG.nF),clean(CFG.nA),CFG.superTB3?1:0,CFG.noAd?1:0,CFG.firstServer,pts].join('|');
+}
+function decode(txt){
+  const p=String(txt).trim().split('|');
+  if(p[0]!=='ST1'||p.length<7) throw new Error('Código inválido');
+  const body=p[6].replace(/\s/g,'');
+  if(body.length%4) throw new Error('Código incompleto');
+  const log=[];
+  for(let i=0;i<body.length;i+=4){
+    const c=body.substr(i,4);
+    if(c[0]==='X'){log.push({t:'swap'});continue;}
+    if(!(c[0]==='F'||c[0]==='A')||!HD[c[1]]) throw new Error('Código corrompido');
+    log.push({t:'pt',w:c[0],how:HD[c[1]],shot:SD[c[2]]||null,serve:c[3]==='2'?2:1});
+  }
+  CFG.nF=p[1]||'Filha'; CFG.nA=p[2]||'Adversária';
+  CFG.superTB3=p[3]==='1'; CFG.noAd=p[4]==='1';
+  CFG.firstServer=p[5]==='A'?'A':'F';
+  LOG=log; pend=null; serveNo=1;
+}
+
+/* ---------------- eventos ---------------- */
+$('undo').onclick=()=>{
+  if(pend){pend=null;render();return;}
+  for(let i=LOG.length-1;i>=0;i--){ if(LOG[i].t==='pt'){LOG.splice(i,1);break;} }
+  save();render();
+};
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  $('pane-'+b.dataset.p).classList.add('on');
+});
+$('cfgNF').oninput=e=>{CFG.nF=e.target.value||'Filha';save();render();};
+$('cfgNA').oninput=e=>{CFG.nA=e.target.value||'Adversária';save();render();};
+$('cfgSTB').onchange=e=>{CFG.superTB3=e.target.checked;save();render();};
+$('cfgNOAD').onchange=e=>{CFG.noAd=e.target.checked;save();render();};
+$('fsF').onclick=()=>{CFG.firstServer='F';syncCfg();save();render();};
+$('fsA').onclick=()=>{CFG.firstServer='A';syncCfg();save();render();};
+$('swap').onclick=()=>{LOG.push({t:'swap'});save();render();};
+$('copy').onclick=async()=>{
+  try{await navigator.clipboard.writeText($('exp').value);$('copy').textContent='Copiado ✓';
+    setTimeout(()=>$('copy').textContent='Copiar resumo',1500);}
+  catch(e){$('exp').select();}
+};
+$('reset').onclick=()=>{
+  if(!confirm('Apagar todos os pontos desta partida?'))return;
+  LOG=[];pend=null;serveNo=1;save();render();
+};
+function syncCfg(){
+  $('cfgNF').value=CFG.nF;$('cfgNA').value=CFG.nA;
+  $('cfgSTB').checked=CFG.superTB3;$('cfgNOAD').checked=CFG.noAd;
+  $('fsF').className=CFG.firstServer==='F'?'on':'';
+  $('fsA').className=CFG.firstServer==='A'?'on':'';
+}
+$('copyBk').onclick=async()=>{
+  try{await navigator.clipboard.writeText($('bk').value);$('copyBk').textContent='Copiado ✓';
+    setTimeout(()=>$('copyBk').textContent='Copiar código',1500);}
+  catch(e){$('bk').select();$('copyBk').textContent='Selecione e copie';}
+};
+$('showRst').onclick=()=>{
+  const b=$('rstBox'); b.style.display=b.style.display==='none'?'block':'none';
+};
+$('doRst').onclick=()=>{
+  const m=$('rstMsg');
+  try{
+    decode($('rstIn').value);
+    save(); syncCfg(); render();
+    m.innerHTML='<b style="color:var(--f)">Partida restaurada.</b>';
+  }catch(err){
+    m.innerHTML='<b style="color:var(--a)">Não deu: '+err.message+'.</b> Cole o código inteiro, começando por ST1|';
+  }
+};
+(async()=>{ await probe(); await load(); syncCfg(); render(); })();
+</script>
+</body>
+</html>
